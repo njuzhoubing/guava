@@ -39,16 +39,11 @@ import javax.annotation.Nullable;
  * A {@link NavigableSet} whose contents will never change, with many other important properties
  * detailed at {@link ImmutableCollection}.
  *
- * <p><b>Warning:</b> as with any {@link SortedSet}, you are strongly advised not to use a {@link
+ * <p><b>Warning:</b> as with any sorted collection, you are strongly advised not to use a {@link
  * Comparator} or {@link Comparable} type whose comparison behavior is <i>inconsistent with
  * equals</i>. That is, {@code a.compareTo(b)} or {@code comparator.compare(a, b)} should equal zero
  * <i>if and only if</i> {@code a.equals(b)}. If this advice is not followed, the resulting
  * collection will not correctly obey its specification.
- *
- * <p><b>Performance note:</b> a set returned by the {@link #headSet}, {@link #tailSet}, or {@link
- * #subSet} method may retain a reference to the entire data set, preventing it from being garbage
- * collected. If this is a problem, pass the subset to {@link #copyOfSorted} to obtain a
- * correctly-sized copy.
  *
  * <p>See the Guava User Guide article on <a href=
  * "http://code.google.com/p/guava-libraries/wiki/ImmutableCollectionsExplained">
@@ -56,7 +51,7 @@ import javax.annotation.Nullable;
  *
  * @author Jared Levy
  * @author Louis Wasserman
- * @since 2.0 (imported from Google Collections Library; implements {@code NavigableSet} since 12.0)
+ * @since 2.0 (implements {@code NavigableSet} since 12.0)
  */
 // TODO(benyu): benchmark and optimize all creation paths, which are a mess now
 @GwtCompatible(serializable = true, emulated = true)
@@ -67,20 +62,16 @@ public abstract class ImmutableSortedSet<E> extends ImmutableSortedSetFauxveride
   private static final Comparator<Comparable> NATURAL_ORDER =
       Ordering.natural();
 
-  private static final ImmutableSortedSet<Comparable> NATURAL_EMPTY_SET =
-      new EmptyImmutableSortedSet<Comparable>(NATURAL_ORDER);
+  private static final RegularImmutableSortedSet<Comparable> NATURAL_EMPTY_SET =
+      new RegularImmutableSortedSet<Comparable>(
+          ImmutableList.<Comparable>of(), NATURAL_ORDER);
 
-  @SuppressWarnings("unchecked")
-  private static <E> ImmutableSortedSet<E> emptySet() {
-    return (ImmutableSortedSet<E>) NATURAL_EMPTY_SET;
-  }
-
-  static <E> ImmutableSortedSet<E> emptySet(
+  static <E> RegularImmutableSortedSet<E> emptySet(
       Comparator<? super E> comparator) {
     if (NATURAL_ORDER.equals(comparator)) {
-      return emptySet();
+      return (RegularImmutableSortedSet<E>) NATURAL_EMPTY_SET;
     } else {
-      return new EmptyImmutableSortedSet<E>(comparator);
+      return new RegularImmutableSortedSet<E>(ImmutableList.<E>of(), comparator);
     }
   }
 
@@ -88,7 +79,7 @@ public abstract class ImmutableSortedSet<E> extends ImmutableSortedSetFauxveride
    * Returns the empty immutable sorted set.
    */
   public static <E> ImmutableSortedSet<E> of() {
-    return emptySet();
+    return (ImmutableSortedSet<E>) NATURAL_EMPTY_SET;
   }
 
   /**
@@ -455,7 +446,7 @@ public abstract class ImmutableSortedSet<E> extends ImmutableSortedSetFauxveride
    * times to build multiple sets in series. Each set is a superset of the set
    * created before it.
    *
-   * @since 2.0 (imported from Google Collections Library)
+   * @since 2.0
    */
   public static final class Builder<E> extends ImmutableSet.Builder<E> {
     private final Comparator<? super E> comparator;

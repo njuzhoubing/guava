@@ -29,6 +29,7 @@ import java.io.InvalidObjectException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.RandomAccess;
@@ -39,10 +40,6 @@ import javax.annotation.Nullable;
  * A {@link List} whose contents will never change, with many other important properties detailed at
  * {@link ImmutableCollection}.
  *
- * <p><b>Performance note:</b> a list returned by the {@link #subList} method may retain a reference
- * to the entire data set, preventing it from being garbage collected. If this is a problem, pass
- * the sublist to {@link #copyOf(Collection)} to obtain a correctly-sized copy.
- *
  * <p>See the Guava User Guide article on <a href=
  * "http://code.google.com/p/guava-libraries/wiki/ImmutableCollectionsExplained">
  * immutable collections</a>.
@@ -50,7 +47,7 @@ import javax.annotation.Nullable;
  * @see ImmutableMap
  * @see ImmutableSet
  * @author Kevin Bourrillion
- * @since 2.0 (imported from Google Collections Library)
+ * @since 2.0
  */
 @GwtCompatible(serializable = true, emulated = true)
 @SuppressWarnings("serial") // we're overriding default serialization
@@ -370,6 +367,9 @@ public abstract class ImmutableList<E> extends ImmutableCollection<E>
   public ImmutableList<E> subList(int fromIndex, int toIndex) {
     checkPositionIndexes(fromIndex, toIndex, size());
     int length = toIndex - fromIndex;
+    if (length == size()) {
+      return this;
+    }
     switch (length) {
       case 0:
         return of();
@@ -497,7 +497,7 @@ public abstract class ImmutableList<E> extends ImmutableCollection<E>
    * @since 7.0
    */
   public ImmutableList<E> reverse() {
-    return new ReverseImmutableList<E>(this);
+    return (size() <= 1) ? this : new ReverseImmutableList<E>(this);
   }
 
   private static class ReverseImmutableList<E> extends ImmutableList<E> {
@@ -615,7 +615,7 @@ public abstract class ImmutableList<E> extends ImmutableCollection<E>
    * times to build multiple lists in series. Each new list contains all the
    * elements of the ones created before it.
    *
-   * @since 2.0 (imported from Google Collections Library)
+   * @since 2.0
    */
   public static final class Builder<E> extends ImmutableCollection.ArrayBasedBuilder<E> {
     /**

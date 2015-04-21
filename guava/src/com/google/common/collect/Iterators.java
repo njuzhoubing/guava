@@ -64,7 +64,7 @@ import javax.annotation.Nullable;
  *
  * @author Kevin Bourrillion
  * @author Jared Levy
- * @since 2.0 (imported from Google Collections Library)
+ * @since 2.0
  */
 @GwtCompatible(emulated = true)
 public final class Iterators {
@@ -452,7 +452,9 @@ public final class Iterators {
    */
   public static <T> Iterator<T> concat(Iterator<? extends T> a,
       Iterator<? extends T> b) {
-    return concat(ImmutableList.of(a, b).iterator());
+    checkNotNull(a);
+    checkNotNull(b);
+    return concat(new ConsumingQueueIterator<Iterator<? extends T>>(a, b));
   }
 
   /**
@@ -471,7 +473,10 @@ public final class Iterators {
    */
   public static <T> Iterator<T> concat(Iterator<? extends T> a,
       Iterator<? extends T> b, Iterator<? extends T> c) {
-    return concat(ImmutableList.of(a, b, c).iterator());
+    checkNotNull(a);
+    checkNotNull(b);
+    checkNotNull(c);
+    return concat(new ConsumingQueueIterator<Iterator<? extends T>>(a, b, c));
   }
 
   /**
@@ -491,7 +496,11 @@ public final class Iterators {
   public static <T> Iterator<T> concat(Iterator<? extends T> a,
       Iterator<? extends T> b, Iterator<? extends T> c,
       Iterator<? extends T> d) {
-    return concat(ImmutableList.of(a, b, c, d).iterator());
+    checkNotNull(a);
+    checkNotNull(b);
+    checkNotNull(c);
+    checkNotNull(d);
+    return concat(new ConsumingQueueIterator<Iterator<? extends T>>(a, b, c, d));
   }
 
   /**
@@ -510,7 +519,10 @@ public final class Iterators {
    * @throws NullPointerException if any of the provided iterators is null
    */
   public static <T> Iterator<T> concat(Iterator<? extends T>... inputs) {
-    return concat(ImmutableList.copyOf(inputs).iterator());
+    for (Iterator<? extends T> input : checkNotNull(inputs)) {
+      checkNotNull(input);
+    }
+    return concat(new ConsumingQueueIterator<Iterator<? extends T>>(inputs));
   }
 
   /**

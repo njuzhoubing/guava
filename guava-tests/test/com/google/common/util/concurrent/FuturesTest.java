@@ -26,6 +26,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.successfulAsList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static com.google.common.util.concurrent.Uninterruptibles.getUninterruptibly;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -65,6 +66,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
@@ -76,6 +78,7 @@ import javax.annotation.Nullable;
  *
  * @author Nishant Thakkar
  */
+@SuppressWarnings("CheckReturnValue")
 @GwtCompatible(emulated = true)
 public class FuturesTest extends TestCase {
   @GwtIncompatible("TestLogHandler")
@@ -1430,6 +1433,43 @@ public class FuturesTest extends TestCase {
     }
   }
 
+  @GwtIncompatible("threads")
+
+  public void testTransform_asyncFunction_cancelledBeforeApplyingFunction()
+      throws InterruptedException, ExecutionException {
+    final AtomicBoolean functionCalled = new AtomicBoolean();
+    AsyncFunction<String, Integer> function = new AsyncFunction<String, Integer>() {
+      @Override
+      public ListenableFuture<Integer> apply(String input) throws Exception {
+        functionCalled.set(true);
+        return Futures.immediateFuture(1);
+      }
+    };
+    SettableFuture<String> inputFuture = SettableFuture.create();
+    ExecutorService executor = newSingleThreadExecutor();
+    ListenableFuture<Integer> future = Futures.transform(
+        inputFuture, function, executor);
+
+    // Pause the executor.
+    final CountDownLatch beforeFunction = new CountDownLatch(1);
+    executor.submit(new Runnable() {
+      @Override
+      public void run() {
+        awaitUninterruptibly(beforeFunction);
+      }
+    });
+
+    // Cancel the future after making input available.
+    inputFuture.set("value");
+    future.cancel(false);
+
+    // Unpause the executor.
+    beforeFunction.countDown();
+    executor.awaitTermination(5, TimeUnit.SECONDS);
+
+    assertFalse(functionCalled.get());
+  }
+
   public void testTransformAsync_genericsWildcard_AsyncFunction() throws Exception {
     ListenableFuture<?> nullFuture = immediateFuture(null);
     ListenableFuture<?> chainedFuture =
@@ -1919,6 +1959,36 @@ public class FuturesTest extends TestCase {
       assertTrue(e.getCause() instanceof MyException);
       assertEquals("Nothing should be logged", 0,
           combinedFutureLogHandler.getStoredLogRecords().size());
+    }
+  }
+
+  @GwtIncompatible("TestLogHandler")
+  public void testAllAsList_logging_seenExceptionUpdateRaceBuggy() throws Exception {
+    final MyException sameInstance = new MyException();
+    SettableFuture<Object> firstFuture = SettableFuture.create();
+    final SettableFuture<Object> secondFuture = SettableFuture.create();
+    ListenableFuture<List<Object>> bulkFuture = allAsList(firstFuture, secondFuture);
+
+    bulkFuture.addListener(new Runnable() {
+      @Override
+      public void run() {
+        /*
+         * firstFuture just completed, but AggregateFuture hasn't yet had time to record the
+         * exception in seenExceptions. When we complete secondFuture with the same exception,
+         * AggregateFuture will think that it's new.
+         */
+        secondFuture.setException(sameInstance);
+      }
+    }, directExecutor());
+    firstFuture.setException(sameInstance);
+
+    try {
+      bulkFuture.get();
+      fail();
+    } catch (ExecutionException expected) {
+      assertTrue(expected.getCause() instanceof MyException);
+      // TODO(cpovirk): Fix this bug. We should see 0 records:
+      assertEquals(1, combinedFutureLogHandler.getStoredLogRecords().size());
     }
   }
 
@@ -3078,7 +3148,7 @@ public class FuturesTest extends TestCase {
   public void testGetCheckedTimed_success()
       throws TwoArgConstructorException {
     assertEquals("foo", getChecked(
-        immediateFuture("foo"), 0, SECONDS, TwoArgConstructorException.class));
+        immediateFuture("foo"), TwoArgConstructorException.class, 0, SECONDS));
   }
 
   @GwtIncompatible("Futures.getChecked")
@@ -3086,7 +3156,7 @@ public class FuturesTest extends TestCase {
     SettableFuture<String> future = SettableFuture.create();
     Thread.currentThread().interrupt();
     try {
-      getChecked(future, 0, SECONDS, TwoArgConstructorException.class);
+      getChecked(future, TwoArgConstructorException.class, 0, SECONDS);
       fail();
     } catch (TwoArgConstructorException expected) {
       assertTrue(expected.getCause() instanceof InterruptedException);
@@ -3102,7 +3172,7 @@ public class FuturesTest extends TestCase {
     SettableFuture<String> future = SettableFuture.create();
     future.cancel(true);
     try {
-      getChecked(future, 0, SECONDS, TwoArgConstructorException.class);
+      getChecked(future, TwoArgConstructorException.class, 0, SECONDS);
       fail();
     } catch (CancellationException expected) {
     }
@@ -3111,8 +3181,8 @@ public class FuturesTest extends TestCase {
   @GwtIncompatible("Futures.getChecked")
   public void testGetCheckedTimed_ExecutionExceptionChecked() {
     try {
-      getChecked(FAILED_FUTURE_CHECKED_EXCEPTION, 0, SECONDS,
-          TwoArgConstructorException.class);
+      getChecked(FAILED_FUTURE_CHECKED_EXCEPTION, TwoArgConstructorException.class, 0,
+          SECONDS);
       fail();
     } catch (TwoArgConstructorException expected) {
       assertEquals(CHECKED_EXCEPTION, expected.getCause());
@@ -3123,8 +3193,8 @@ public class FuturesTest extends TestCase {
   public void testGetCheckedTimed_ExecutionExceptionUnchecked()
       throws TwoArgConstructorException {
     try {
-      getChecked(FAILED_FUTURE_UNCHECKED_EXCEPTION, 0, SECONDS,
-          TwoArgConstructorException.class);
+      getChecked(FAILED_FUTURE_UNCHECKED_EXCEPTION, TwoArgConstructorException.class, 0,
+          SECONDS);
       fail();
     } catch (UncheckedExecutionException expected) {
       assertEquals(UNCHECKED_EXCEPTION, expected.getCause());
@@ -3135,7 +3205,7 @@ public class FuturesTest extends TestCase {
   public void testGetCheckedTimed_ExecutionExceptionError()
       throws TwoArgConstructorException {
     try {
-      getChecked(FAILED_FUTURE_ERROR, 0, SECONDS, TwoArgConstructorException.class);
+      getChecked(FAILED_FUTURE_ERROR, TwoArgConstructorException.class, 0, SECONDS);
       fail();
     } catch (ExecutionError expected) {
       assertEquals(ERROR, expected.getCause());
@@ -3145,8 +3215,8 @@ public class FuturesTest extends TestCase {
   @GwtIncompatible("Futures.getChecked")
   public void testGetCheckedTimed_ExecutionExceptionOtherThrowable() {
     try {
-      getChecked(FAILED_FUTURE_OTHER_THROWABLE, 0, SECONDS,
-          TwoArgConstructorException.class);
+      getChecked(FAILED_FUTURE_OTHER_THROWABLE, TwoArgConstructorException.class, 0,
+          SECONDS);
       fail();
     } catch (TwoArgConstructorException expected) {
       assertEquals(OTHER_THROWABLE, expected.getCause());
@@ -3157,8 +3227,8 @@ public class FuturesTest extends TestCase {
   public void testGetCheckedTimed_RuntimeException()
       throws TwoArgConstructorException {
     try {
-      getChecked(RUNTIME_EXCEPTION_FUTURE, 0, SECONDS,
-          TwoArgConstructorException.class);
+      getChecked(RUNTIME_EXCEPTION_FUTURE, TwoArgConstructorException.class, 0,
+          SECONDS);
       fail();
     } catch (RuntimeException expected) {
       assertEquals(RUNTIME_EXCEPTION, expected);
@@ -3169,7 +3239,7 @@ public class FuturesTest extends TestCase {
   public void testGetCheckedTimed_TimeoutException() {
     SettableFuture<String> future = SettableFuture.create();
     try {
-      getChecked(future, 0, SECONDS, TwoArgConstructorException.class);
+      getChecked(future, TwoArgConstructorException.class, 0, SECONDS);
       fail();
     } catch (TwoArgConstructorException expected) {
       assertTrue(expected.getCause() instanceof TimeoutException);
@@ -3180,7 +3250,7 @@ public class FuturesTest extends TestCase {
   public void testGetCheckedTimed_badExceptionConstructor_wrapsOriginalChecked() throws Exception {
     try {
       getChecked(
-          FAILED_FUTURE_CHECKED_EXCEPTION, 1, TimeUnit.SECONDS, ExceptionWithBadConstructor.class);
+          FAILED_FUTURE_CHECKED_EXCEPTION, ExceptionWithBadConstructor.class, 1, TimeUnit.SECONDS);
       fail();
     } catch (IllegalArgumentException expected) {
       assertSame(CHECKED_EXCEPTION, expected.getCause());
@@ -3190,8 +3260,8 @@ public class FuturesTest extends TestCase {
   @GwtIncompatible("Futures.getChecked")
   public void testGetCheckedTimed_withGoodAndBadExceptionConstructor() throws Exception {
     try {
-      getChecked(FAILED_FUTURE_CHECKED_EXCEPTION, 1, TimeUnit.SECONDS,
-          ExceptionWithGoodAndBadConstructor.class);
+      getChecked(FAILED_FUTURE_CHECKED_EXCEPTION, ExceptionWithGoodAndBadConstructor.class, 1,
+          TimeUnit.SECONDS);
       fail();
     } catch (ExceptionWithGoodAndBadConstructor expected) {
       assertSame(CHECKED_EXCEPTION, expected.getCause());

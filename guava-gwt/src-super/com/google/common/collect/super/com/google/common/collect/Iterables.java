@@ -53,7 +53,7 @@ import javax.annotation.Nullable;
  *
  * @author Kevin Bourrillion
  * @author Jared Levy
- * @since 2.0 (imported from Google Collections Library)
+ * @since 2.0
  */
 @GwtCompatible(emulated = true)
 public final class Iterables {
@@ -933,22 +933,6 @@ public final class Iterables {
         return "Iterables.consumingIterable(...)";
       }
     };
-  }
-
-  private static class ConsumingQueueIterator<T> extends AbstractIterator<T> {
-    private final Queue<T> queue;
-
-    private ConsumingQueueIterator(Queue<T> queue) {
-      this.queue = queue;
-    }
-
-    @Override public T computeNext() {
-      try {
-        return queue.remove();
-      } catch (NoSuchElementException e) {
-        return endOfData();
-      }
-    }
   }
 
   // Methods only in Iterables, not in Iterators

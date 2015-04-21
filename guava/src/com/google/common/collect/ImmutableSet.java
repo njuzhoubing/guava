@@ -34,11 +34,10 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * An immutable collection that cannot contain duplicate elements and has order-independent
- * {@linkplain #equals equality}; <b>please see {@link ImmutableCollection}</b> for many important
- * details common to all immutable collection types.
+ * A {@link Set} whose contents will never change, with many other important properties detailed at
+ * {@link ImmutableCollection}.
  *
- * @since 2.0 (imported from Google Collections Library)
+ * @since 2.0
  */
 @GwtCompatible(serializable = true, emulated = true)
 @SuppressWarnings("serial") // we're overriding default serialization
@@ -50,7 +49,7 @@ public abstract class ImmutableSet<E> extends ImmutableCollection<E>
    */
   @SuppressWarnings({"unchecked"}) // fully variant implementation (never actually produces any Es)
   public static <E> ImmutableSet<E> of() {
-    return (ImmutableSet<E>) EmptyImmutableSet.INSTANCE;
+    return (ImmutableSet<E>) RegularImmutableSet.EMPTY;
   }
 
   /**
@@ -340,6 +339,30 @@ public abstract class ImmutableSet<E> extends ImmutableCollection<E>
   // ImmutableCollection.iterator() consistent.
   @Override public abstract UnmodifiableIterator<E> iterator();
 
+  abstract static class Indexed<E> extends ImmutableSet<E> {
+    abstract E get(int index);
+
+    @Override
+    public UnmodifiableIterator<E> iterator() {
+      return asList().iterator();
+    }
+
+    @Override
+    ImmutableList<E> createAsList() {
+      return new ImmutableAsList<E>() {
+        @Override
+        public E get(int index) {
+          return Indexed.this.get(index);
+        }
+
+        @Override
+        Indexed<E> delegateCollection() {
+          return Indexed.this;
+        }
+      };
+    }
+  }
+
   /*
    * This class is used to serialize all ImmutableSet instances, except for
    * ImmutableEnumSet/ImmutableSortedSet, regardless of implementation type. It
@@ -384,7 +407,7 @@ public abstract class ImmutableSet<E> extends ImmutableCollection<E>
    * times to build multiple sets in series. Each set is a superset of the set
    * created before it.
    *
-   * @since 2.0 (imported from Google Collections Library)
+   * @since 2.0
    */
   public static class Builder<E> extends ImmutableCollection.ArrayBasedBuilder<E> {
 

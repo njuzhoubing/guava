@@ -19,6 +19,7 @@ package com.google.common.collect;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.GwtCompatible;
+import com.google.common.collect.Multiset.Entry;
 
 import java.io.Serializable;
 import java.util.Collection;
@@ -33,8 +34,7 @@ import javax.annotation.Nullable;
  *
  * <p><b>Grouped iteration.</b> In all current implementations, duplicate elements always appear
  * consecutively when iterating. Elements iterate in order by the <i>first</i> appearance of
- * that element when the multiset was created. All view collections share the same iteration order
- * as the parent multiset.
+ * that element when the multiset was created.
  *
  * <p>See the Guava User Guide article on <a href=
  * "http://code.google.com/p/guava-libraries/wiki/ImmutableCollectionsExplained">
@@ -42,7 +42,7 @@ import javax.annotation.Nullable;
  *
  * @author Jared Levy
  * @author Louis Wasserman
- * @since 2.0 (imported from Google Collections Library)
+ * @since 2.0
  */
 @GwtCompatible(serializable = true, emulated = true)
 @SuppressWarnings("serial") // we're overriding default serialization
@@ -303,30 +303,15 @@ public abstract class ImmutableMultiset<E> extends ImmutableCollection<E>
 
   abstract Entry<E> getEntry(int index);
 
-  private final class EntrySet extends ImmutableSet<Entry<E>> {
+  private final class EntrySet extends ImmutableSet.Indexed<Entry<E>> {
     @Override
     boolean isPartialView() {
       return ImmutableMultiset.this.isPartialView();
     }
 
     @Override
-    public UnmodifiableIterator<Entry<E>> iterator() {
-      return asList().iterator();
-    }
-
-    @Override
-    ImmutableList<Entry<E>> createAsList() {
-      return new ImmutableAsList<Entry<E>>() {
-        @Override
-        public Entry<E> get(int index) {
-          return getEntry(index);
-        }
-
-        @Override
-        ImmutableCollection<Entry<E>> delegateCollection() {
-          return EntrySet.this;
-        }
-      };
+    Entry<E> get(int index) {
+      return getEntry(index);
     }
 
     @Override
@@ -432,7 +417,7 @@ public abstract class ImmutableMultiset<E> extends ImmutableCollection<E>
    * <p>Builder instances can be reused; it is safe to call {@link #build} multiple
    * times to build multiple multisets in series.
    *
-   * @since 2.0 (imported from Google Collections Library)
+   * @since 2.0
    */
   public static class Builder<E> extends ImmutableCollection.Builder<E> {
     final Multiset<E> contents;

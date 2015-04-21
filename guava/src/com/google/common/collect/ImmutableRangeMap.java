@@ -31,9 +31,8 @@ import java.util.NoSuchElementException;
 import javax.annotation.Nullable;
 
 /**
- * An immutable implementation of {@code RangeMap}, supporting all query operations efficiently.
- *
- * <p>Like all {@code RangeMap} implementations, this supports neither null keys nor null values.
+ * A {@link RangeMap} whose contents will never change, with many other important properties
+ * detailed at {@link ImmutableCollection}.
  *
  * @author Louis Wasserman
  * @since 14.0
@@ -223,7 +222,7 @@ public class ImmutableRangeMap<K extends Comparable<?>, V> implements RangeMap<K
     }
     RegularImmutableSortedSet<Range<K>> rangeSet =
         new RegularImmutableSortedSet<Range<K>>(ranges, Range.RANGE_LEX_ORDERING);
-    return new RegularImmutableSortedMap<Range<K>, V>(rangeSet, values);
+    return new ImmutableSortedMap<Range<K>, V>(rangeSet, values);
   }
   
   @Override

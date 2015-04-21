@@ -280,10 +280,6 @@ public abstract class CharMatcher implements Predicate<Character> {
       return true;
     }
 
-    @Override public int indexIn(CharSequence sequence) {
-      return (sequence.length() == 0) ? -1 : 0;
-    }
-
     @Override public int indexIn(CharSequence sequence, int start) {
       int length = sequence.length();
       Preconditions.checkPositionIndex(start, length);
@@ -297,10 +293,6 @@ public abstract class CharMatcher implements Predicate<Character> {
     @Override public boolean matchesAllOf(CharSequence sequence) {
       checkNotNull(sequence);
       return true;
-    }
-
-    @Override public boolean matchesNoneOf(CharSequence sequence) {
-      return sequence.length() == 0;
     }
 
     @Override public String removeFrom(CharSequence sequence) {
@@ -355,11 +347,6 @@ public abstract class CharMatcher implements Predicate<Character> {
       return false;
     }
 
-    @Override public int indexIn(CharSequence sequence) {
-      checkNotNull(sequence);
-      return -1;
-    }
-
     @Override public int indexIn(CharSequence sequence, int start) {
       int length = sequence.length();
       Preconditions.checkPositionIndex(start, length);
@@ -375,21 +362,7 @@ public abstract class CharMatcher implements Predicate<Character> {
       return sequence.length() == 0;
     }
 
-    @Override public boolean matchesNoneOf(CharSequence sequence) {
-      checkNotNull(sequence);
-      return true;
-    }
-
     @Override public String removeFrom(CharSequence sequence) {
-      return sequence.toString();
-    }
-
-    @Override public String replaceFrom(CharSequence sequence, char replacement) {
-      return sequence.toString();
-    }
-
-    @Override public String replaceFrom(CharSequence sequence, CharSequence replacement) {
-      checkNotNull(replacement);
       return sequence.toString();
     }
 
@@ -813,13 +786,7 @@ public abstract class CharMatcher implements Predicate<Character> {
    * @return an index, or {@code -1} if no character matches
    */
   public int indexIn(CharSequence sequence) {
-    int length = sequence.length();
-    for (int i = 0; i < length; i++) {
-      if (matches(sequence.charAt(i))) {
-        return i;
-      }
-    }
-    return -1;
+    return indexIn(sequence, 0);
   }
 
   /**

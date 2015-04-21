@@ -51,7 +51,7 @@ import javax.annotation.Nullable;
  * @author Chris Povirk
  * @author Mike Bostock
  * @author Jared Levy
- * @since 2.0 (imported from Google Collections Library)
+ * @since 2.0
  */
 @CheckReturnValue
 @GwtCompatible
@@ -88,6 +88,7 @@ public final class Collections2 {
    */
   // TODO(kevinb): how can we omit that Iterables link when building gwt
   // javadoc?
+  @CheckReturnValue
   public static <E> Collection<E> filter(
       Collection<E> unfiltered, Predicate<? super E> predicate) {
     if (unfiltered instanceof FilteredCollection) {
